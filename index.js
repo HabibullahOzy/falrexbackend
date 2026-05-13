@@ -11,6 +11,7 @@ const categoryRoutes = require("./routes/category.routes");
 const userRoutes     = require("./routes/user.routes");
 const cartRoutes  = require("./routes/cart.routes");
 const orderRoutes = require("./routes/order.routes");
+const reviewRoutes = require("./routes/review.routes");
 
 
 
@@ -39,6 +40,7 @@ app.use("/category", categoryRoutes);
 app.use("/users",    userRoutes);
 app.use("/cart",   cartRoutes);
 app.use("/orders", orderRoutes);
+app.use("/reviews", reviewRoutes);
 
 // Health check
 app.get("/", (req, res) => res.send("🟢 Server running"));

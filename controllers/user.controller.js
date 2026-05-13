@@ -63,7 +63,7 @@ exports.updateUserStatus = async (req, res) => {
     const user = await User.findOneAndUpdate(
       { uid: req.params.uid },
       { isActive },
-      { new: true }
+      { returnDocument: "after"  }
     );
     if (!user) return res.status(404).json({ success: false, message: "User not found" });
     return res.json({ success: true, data: user, message: `User ${isActive ? "activated" : "suspended"}` });
@@ -88,7 +88,7 @@ exports.updateSellerStatus = async (req, res) => {
     };
 
     const user = await User.findOneAndUpdate(
-      { uid: req.params.uid }, update, { new: true }
+      { uid: req.params.uid }, update, {  returnDocument: "after"  }
     );
     if (!user) return res.status(404).json({ success: false, message: "User not found" });
     return res.json({ success: true, data: user, message: `Seller ${status}` });

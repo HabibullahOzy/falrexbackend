@@ -142,25 +142,27 @@ exports.getProductBycategory = async (req, res) => {
 };
 
 // GET /product/subsubcategory/:subSubcategory
-// exports.getProductBySubsubcategory = async (req, res) => {
-//   try {
-//     const { subSubcategory } = req.params;
-//     const { page = 1, limit = 24 } = req.query;
+exports.getProductBySubsubcategory = async (req, res) => {
+  try {
+    const { subSubcategory } = req.params;
+    const { page = 1, limit = 24 } = req.query;
 
-//     const query = { subSubcategory: subSubcategory };
+    // const query = { subSubcategory: subSubcategory };
 
-//     const products = await Product.find(query)
-//       .skip((page - 1) * limit)
-//       .limit(Number(limit));
+    const products = await Product.find({
+      subSubcategory: { $regex: new RegExp(subSubcategory, "i") },
+    })
+      .skip((page - 1) * limit)
+      .limit(Number(limit));
 
-//     if (!products.length)
-//       return res.status(404).json({ success: false, message: "No products found" });
+    if (!products.length)
+      return res.status(404).json({ success: false, message: "No products found" });
 
-//     res.json({ success: true, data: products });
-//   } catch (err) {
-//     res.status(500).json({ success: false, message: err.message });
-//   }
-// };
+    res.json({ success: true, data: products });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
 
 
 // ── UPDATE ───────────────────────────────────────────────────────
@@ -237,10 +239,140 @@ exports.deleteImage = async (req, res) => {
     const product = await Product.findByIdAndUpdate(
       id,
       { $pull: { images: { public_id } } },
-      { new: true }
+      { returnDocument: 'after' }
     );
 
     res.json({ success: true, data: product });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+
+
+
+
+
+// ── GET PRODUCTS BY CATEGORY WITH FILTERS ─────────────────────────────────
+// GET /product/filter
+exports.getProductsByFilter = async (req, res) => {
+  try {
+    const {
+      category, subcategory, subSubcategory,
+      minPrice, maxPrice, sort = "newest",
+      page = 1, limit = 20,
+      search, inStock, currency,
+    } = req.query;
+
+    const filter = {};
+
+    // Category filters
+    if (category)       filter.category       = { $regex: new RegExp(`^${category}$`, "i") };
+    if (subcategory)    filter.subcategory    = { $regex: new RegExp(`^${subcategory}$`, "i") };
+    if (subSubcategory) filter.subSubcategory = { $regex: new RegExp(`^${subSubcategory}$`, "i") };
+
+    // Price filter
+    if (minPrice || maxPrice) {
+      filter.price = {};
+      if (minPrice) filter.price.$gte = Number(minPrice);
+      if (maxPrice) filter.price.$lte = Number(maxPrice);
+    }
+
+    // Search
+    if (search) {
+      filter.$or = [
+        { nameEng:      { $regex: new RegExp(search, "i") } },
+        { brand:        { $regex: new RegExp(search, "i") } },
+        { description:  { $regex: new RegExp(search, "i") } },
+        { tags:         { $in: [new RegExp(search, "i")] } },
+      ];
+    }
+
+    // Stock filter
+    if (inStock === "true") filter.stock = { $gt: 0 };
+
+    // Currency filter
+    if (currency) filter.currency = { $regex: new RegExp(currency, "i") };
+
+    // Sort
+    const sortMap = {
+      newest:     { createdAt: -1 },
+      oldest:     { createdAt:  1 },
+      priceAsc:   { price:      1 },
+      priceDesc:  { price:     -1 },
+      nameAsc:    { nameEng:    1 },
+      popular:    { totalReviews: -1, avgRating: -1 },
+    };
+    const sortQuery = sortMap[sort] || sortMap.newest;
+
+    const skip  = (Number(page) - 1) * Number(limit);
+    const total = await Product.countDocuments(filter);
+
+    const products = await Product.find(filter)
+      .sort(sortQuery)
+      .skip(skip)
+      .limit(Number(limit))
+      .select(
+        "nameEng brand price currency discount moq stock category subcategory " +
+        "subSubcategory images supplierName countryOfOrigin avgRating totalReviews " +
+        "tags shortDescription createdAt"
+      );
+
+    // Get unique subcategories & sub-subcategories for this category
+    const subCats = category
+      ? await Product.distinct("subcategory", {
+          category: { $regex: new RegExp(`^${category}$`, "i") },
+          subcategory: { $ne: "" },
+        })
+      : [];
+
+    const subSubCats = subcategory
+      ? await Product.distinct("subSubcategory", {
+          category:    { $regex: new RegExp(`^${category}$`, "i") },
+          subcategory: { $regex: new RegExp(`^${subcategory}$`, "i") },
+          subSubcategory: { $ne: "" },
+        })
+      : [];
+
+    // Price range for this filter
+    const priceAgg = await Product.aggregate([
+      { $match: { ...filter, price: { $exists: true, $gt: 0 } } },
+      { $group: { _id: null, min: { $min: "$price" }, max: { $max: "$price" } } },
+    ]);
+    const priceRange = priceAgg[0] || { min: 0, max: 100000 };
+
+    return res.json({
+      success: true,
+      total,
+      page:    Number(page),
+      pages:   Math.ceil(total / Number(limit)),
+      data:    products,
+      meta: {
+        subCategories:    subCats.filter(Boolean).sort(),
+        subSubCategories: subSubCats.filter(Boolean).sort(),
+        priceRange,
+      },
+    });
+  } catch (err) {
+    console.error("getProductsByFilter error:", err);
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+
+
+// routes: GET /product/category/:slug
+exports.getCategoryBySlug = async (req, res) => {
+  try {
+    const { slug } = req.params;
+    // slug could be "consumer-electronics" → convert to "Consumer Electronics"
+    // OR store slug directly in your Category model (recommended)
+    
+    // Option A: if your Category model has a `slug` field
+    const Category = require("../models/Category"); // adjust path
+    const category = await Category.findOne({ slug }).lean();
+    if (!category) return res.status(404).json({ success: false, message: "Category not found" });
+    return res.json({ success: true, data: category });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
