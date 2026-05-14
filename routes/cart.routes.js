@@ -4,7 +4,7 @@ const { verifyJWT } = require("../middleware/verifyJWT");
 const {
   getCart, addToCart, updateQuantity,
   removeItem, clearCart, mergeCarts,
-} = require("../controllers/cart.controller");
+} = require("../controllers/Cart.controller");
 
 // No auth required — works for guests via sessionId header
 router.get(   "/",              getCart);
