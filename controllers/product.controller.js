@@ -165,38 +165,174 @@ exports.getProductBySubsubcategory = async (req, res) => {
 };
 
 
-// ── UPDATE ───────────────────────────────────────────────────────
+// // ── UPDATE ───────────────────────────────────────────────────────
+// exports.updateProduct = async (req, res) => {
+//   try {
+//     const body = req.body;
+
+//     const updateData = { ...body };
+
+//     if (body.specifications)
+//       updateData.specifications = JSON.parse(body.specifications);
+//     if (body.tags)
+//       updateData.tags = JSON.parse(body.tags);
+//     if (body.variations)
+//       updateData.variations = JSON.parse(body.variations);
+
+//     // If new images uploaded, append them
+//     if (req.files?.images) {
+//       const newImages = req.files.images.map((f) => ({
+//         url: f.path, public_id: f.filename,
+//       }));
+//       updateData.$push = { images: { $each: newImages } };
+//     }
+
+//     const product = await Product.findByIdAndUpdate(
+//       req.params.id,
+//       updateData,
+//       { new: true, runValidators: true }
+//     );
+
+//     if (!product)
+//       return res.status(404).json({ success: false, message: "Not found" });
+
+//     res.json({ success: true, data: product });
+//   } catch (err) {
+//     res.status(500).json({ success: false, message: err.message });
+//   }
+// };
+
+
+
+// ── UPDATE ─────────────────────────────────────────────────────────────────
 exports.updateProduct = async (req, res) => {
   try {
-    const body = req.body;
+    const product = await Product.findById(req.params.id);
+    if (!product)
+      return res.status(404).json({ success: false, message: "Product not found" });
 
+    const body       = req.body;
     const updateData = { ...body };
 
-    if (body.specifications)
-      updateData.specifications = JSON.parse(body.specifications);
-    if (body.tags)
-      updateData.tags = JSON.parse(body.tags);
-    if (body.variations)
-      updateData.variations = JSON.parse(body.variations);
-
-    // If new images uploaded, append them
-    if (req.files?.images) {
-      const newImages = req.files.images.map((f) => ({
-        url: f.path, public_id: f.filename,
-      }));
-      updateData.$push = { images: { $each: newImages } };
+    // Parse JSON strings
+    if (body.specifications) {
+      try { updateData.specifications = JSON.parse(body.specifications); }
+      catch { delete updateData.specifications; }
+    }
+    if (body.tags) {
+      try { updateData.tags = JSON.parse(body.tags); }
+      catch { updateData.tags = []; }
+    }
+    if (body.variations) {
+      try { updateData.variations = JSON.parse(body.variations); }
+      catch { updateData.variations = []; }
     }
 
-    const product = await Product.findByIdAndUpdate(
+    // ── Handle image deletions ────────────────────────────────────────────
+    // Client sends: deleteImages = JSON array of public_ids to remove
+    if (body.deleteImages) {
+      let toDelete = [];
+      try { toDelete = JSON.parse(body.deleteImages); } catch {}
+
+      if (toDelete.length > 0) {
+        // Delete from Cloudinary
+        await Promise.all(
+          toDelete.map((public_id) =>
+            cloudinary.uploader.destroy(public_id).catch(() => {})
+          )
+        );
+        // Remove from product
+        updateData.images = product.images.filter(
+          (img) => !toDelete.includes(img.public_id)
+        );
+      } else {
+        updateData.images = product.images;
+      }
+    }
+
+    // ── Handle video deletion ─────────────────────────────────────────────
+    if (body.deleteVideo === "true" && product.video?.public_id) {
+      await cloudinary.uploader.destroy(product.video.public_id, {
+        resource_type: "video",
+      }).catch(() => {});
+      updateData.video = null;
+    }
+
+    // ── Append new uploaded images ────────────────────────────────────────
+    if (req.uploadedImages && req.uploadedImages.length > 0) {
+      const existingImages = updateData.images || product.images || [];
+      updateData.images    = [...existingImages, ...req.uploadedImages];
+    }
+
+    // ── Replace video if new one uploaded ─────────────────────────────────
+    if (req.uploadedVideo) {
+      // Delete old video from Cloudinary if exists
+      if (product.video?.public_id) {
+        await cloudinary.uploader.destroy(product.video.public_id, {
+          resource_type: "video",
+        }).catch(() => {});
+      }
+      updateData.video = req.uploadedVideo;
+    }
+
+    const updated = await Product.findByIdAndUpdate(
       req.params.id,
-      updateData,
+      { $set: updateData },
       { new: true, runValidators: true }
     );
 
-    if (!product)
-      return res.status(404).json({ success: false, message: "Not found" });
+    res.json({ success: true, data: updated, message: "Product updated successfully" });
+  } catch (err) {
+    console.error("updateProduct error:", err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
 
-    res.json({ success: true, data: product });
+// ── DELETE SINGLE IMAGE ────────────────────────────────────────────────────
+exports.deleteProductImage = async (req, res) => {
+  try {
+    const { id, public_id } = req.params;
+    const decodedPublicId   = decodeURIComponent(public_id);
+
+    // Delete from Cloudinary
+    await cloudinary.uploader.destroy(decodedPublicId).catch(() => {});
+
+    // Remove from product
+    const product = await Product.findByIdAndUpdate(
+      id,
+      { $pull: { images: { public_id: decodedPublicId } } },
+      { new: true }
+    );
+
+    if (!product)
+      return res.status(404).json({ success: false, message: "Product not found" });
+
+    res.json({ success: true, data: product, message: "Image deleted" });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// ── DELETE VIDEO ───────────────────────────────────────────────────────────
+exports.deleteProductVideo = async (req, res) => {
+  try {
+    const product = await Product.findById(req.params.id);
+    if (!product)
+      return res.status(404).json({ success: false, message: "Product not found" });
+
+    if (product.video?.public_id) {
+      await cloudinary.uploader.destroy(product.video.public_id, {
+        resource_type: "video",
+      }).catch(() => {});
+    }
+
+    const updated = await Product.findByIdAndUpdate(
+      req.params.id,
+      { $set: { video: null } },
+      { new: true }
+    );
+
+    res.json({ success: true, data: updated, message: "Video deleted" });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }

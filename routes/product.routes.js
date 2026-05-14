@@ -1,6 +1,6 @@
 const express = require("express");
-const router  = express.Router();
-const upload  = require("../middleware/upload");
+const router = express.Router();
+const upload = require("../middleware/upload");
 const {
   createProduct,
   getAllProducts,
@@ -12,27 +12,35 @@ const {
   getProductBySubsubcategory,
   getProductsByFilter,
   getCategoryBySlug,
+  deleteProductImage,
+  deleteProductVideo
 } = require("../controllers/product.controller");
 
 // CRUD
-router.post(  "/",               upload, createProduct);
-router.get(   "/",                       getAllProducts);
+router.post("/", upload, createProduct);
+router.get("/", getAllProducts);
 // Add BEFORE /:id route
 router.get("/filter", getProductsByFilter);
 router.get("/category/:slug", getCategoryBySlug);
-router.get(   "/:id", getProductById);
-router.put(   "/:id",           upload, updateProduct);
-router.delete("/:id",                    deleteProduct);
+router.get("/:id", getProductById);
+// router.put(   "/:id",           upload, updateProduct);
+router.delete("/:id", deleteProduct);
 
 // Delete a single image from a product
-router.delete("/:id/image/:public_id",   deleteImage);
+// router.delete("/:id/image/:public_id",   deleteImage);
+
+
+router.put("/:id", upload, updateProduct);
+// router.delete("/:id",                          deleteProduct);
+router.delete("/:id/image/:public_id", deleteProductImage);
+router.delete("/:id/video", deleteProductVideo);
 
 
 // ── Category route — must come AFTER /:id to avoid conflict ──────────────────
-router.get(   "/category/:category",          getProductBycategory);
+router.get("/category/:category", getProductBycategory);
 
 
-router.get(   "/subsubcategory/:subSubcategory", getProductBySubsubcategory);
+router.get("/subsubcategory/:subSubcategory", getProductBySubsubcategory);
 
 // GET /category/:name  — fetch one category by name (case-insensitive)
 router.get("/:name", async (req, res) => {
