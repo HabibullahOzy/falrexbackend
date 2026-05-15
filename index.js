@@ -40,6 +40,14 @@ initSocket(io);
 
 
 
+// Fix COOP for Google OAuth popup
+app.use((req, res, next) => {
+  res.setHeader('Cross-Origin-Opener-Policy', 'same-origin-allow-popups');
+  res.setHeader('Cross-Origin-Embedder-Policy', 'unsafe-none');
+  next();
+});
+
+
 // ── Middleware ──────────────────────────────────────────────────
 app.use(cors({
   origin: "http://localhost:3000", // Your Next.js URL
