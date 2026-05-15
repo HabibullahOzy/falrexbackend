@@ -21,6 +21,7 @@ const chatRoutes     = require("./routes/chat.routes");
 connectDB();
 
 const app = express();
+const server = http.createServer(app);
 
 // ── Socket.IO ──────────────────────────────────────────────────────────────
 const io = new Server(server, {
