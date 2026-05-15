@@ -116,57 +116,103 @@ exports.register = async (req, res) => {
 
 // ── LOGIN / ISSUE JWT ─────────────────────────────────────────────────────────
 // POST /auth/login
+// exports.login = async (req, res) => {
+//   try {
+//     const { firebaseToken } = req.body;
+
+//     if (!firebaseToken) {
+//       return res.status(400).json({ success: false, message: "Firebase token required" });
+//     }
+
+//     // Verify Firebase token
+//     const decoded = await admin.auth().verifyIdToken(firebaseToken);
+
+//     // Find user in DB
+//     let user = await User.findOneAndUpdate(
+//       { uid: decoded.uid },
+//       { lastLoginAt: new Date() },
+//       { new: true }
+//     );
+
+//     // Auto-create for Google/Phone users who aren't in DB yet
+//     if (!user) {
+//       user = await User.create({
+//         uid: decoded.uid,
+//         email: decoded.email || null,  // ← null instead of ""
+//         firstName: decoded.name?.split(" ")[0] || "User",
+//         lastName: decoded.name?.split(" ").slice(1).join(" ") || "",
+//         role: "user",
+//         authProvider: decoded.firebase?.sign_in_provider?.includes("google") ? "google" : "phone",
+//         isEmailVerified: decoded.email_verified || false,
+//         sellerStatus: "none",
+//         lastLoginAt: new Date(),
+//       });
+//     }
+
+//     if (!user.isActive) {
+//       return res.status(403).json({ success: false, message: "Account suspended." });
+//     }
+
+//     const token = issueJWT(user);
+//     setJWTCookie(res, token);
+
+//     return res.json({
+//       success: true,
+//       token,
+//       user: sanitizeUser(user),
+//     });
+
+//   } catch (err) {
+//     console.error("Login error:", err);
+//     return res.status(500).json({ success: false, message: err.message });
+//   }
+// };
+
 exports.login = async (req, res) => {
   try {
     const { firebaseToken } = req.body;
 
-    if (!firebaseToken) {
+    if (!firebaseToken)
       return res.status(400).json({ success: false, message: "Firebase token required" });
-    }
 
-    // Verify Firebase token
     const decoded = await admin.auth().verifyIdToken(firebaseToken);
 
-    // Find user in DB
+    // ✅ Search by uid OR email to avoid duplicate create
     let user = await User.findOneAndUpdate(
-      { uid: decoded.uid },
-      { lastLoginAt: new Date() },
-      { new: true }
+      { $or: [{ uid: decoded.uid }, { email: decoded.email || null }] },
+      { lastLoginAt: new Date(), uid: decoded.uid },
+      { returnDocument: 'after' }
     );
 
-    // Auto-create for Google/Phone users who aren't in DB yet
     if (!user) {
       user = await User.create({
-        uid: decoded.uid,
-        email: decoded.email || null,  // ← null instead of ""
-        firstName: decoded.name?.split(" ")[0] || "User",
-        lastName: decoded.name?.split(" ").slice(1).join(" ") || "",
-        role: "user",
-        authProvider: decoded.firebase?.sign_in_provider?.includes("google") ? "google" : "phone",
+        uid:             decoded.uid,
+        email:           decoded.email || null,
+        firstName:       decoded.name?.split(" ")[0] || "User",
+        lastName:        decoded.name?.split(" ").slice(1).join(" ") || "",
+        role:            "user",
+        authProvider:    decoded.firebase?.sign_in_provider?.includes("google") ? "google" : "phone",
         isEmailVerified: decoded.email_verified || false,
-        sellerStatus: "none",
-        lastLoginAt: new Date(),
+        sellerStatus:    "none",
+        lastLoginAt:     new Date(),
       });
     }
 
-    if (!user.isActive) {
+    if (!user.isActive)
       return res.status(403).json({ success: false, message: "Account suspended." });
-    }
 
     const token = issueJWT(user);
     setJWTCookie(res, token);
 
-    return res.json({
-      success: true,
-      token,
-      user: sanitizeUser(user),
-    });
+    return res.json({ success: true, token, user: sanitizeUser(user) });
 
   } catch (err) {
     console.error("Login error:", err);
     return res.status(500).json({ success: false, message: err.message });
   }
 };
+
+
 
 // ── GET CURRENT USER ──────────────────────────────────────────────────────────
 // GET /auth/me   (requires JWT)
