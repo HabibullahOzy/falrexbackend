@@ -3,6 +3,8 @@ const express    = require("express");
 const cors       = require("cors");
 const cookieParser = require("cookie-parser");
 const connectDB  = require("./config/db");
+const { Server }   = require("socket.io");
+const initSocket   = require("./socket/chatSocket");
 
 // ── Routes ────────────────────────────────────────────────────────────────────
 const productRoutes = require("./routes/product.routes");
@@ -12,12 +14,28 @@ const userRoutes     = require("./routes/user.routes");
 const cartRoutes  = require("./routes/cart.routes");
 const orderRoutes = require("./routes/order.routes");
 const reviewRoutes = require("./routes/review.routes");
+const chatRoutes     = require("./routes/chat.routes");
 
 
 
 connectDB();
 
 const app = express();
+
+// ── Socket.IO ──────────────────────────────────────────────────────────────
+const io = new Server(server, {
+  cors: {
+    origin:      process.env.CLIENT_URL || "http://localhost:3000",
+    credentials: true,
+    methods:     ["GET", "POST"],
+  },
+  pingTimeout:  60000,
+  pingInterval: 25000,
+});
+
+initSocket(io);
+
+
 
 // ── Middleware ──────────────────────────────────────────────────
 app.use(cors({
@@ -41,6 +59,7 @@ app.use("/users",    userRoutes);
 app.use("/cart",   cartRoutes);
 app.use("/orders", orderRoutes);
 app.use("/reviews", reviewRoutes);
+app.use("/chat",     chatRoutes);
 
 // Health check
 app.get("/", (req, res) => res.send("🟢 Server running"));
