@@ -3,6 +3,8 @@ const admin = require("firebase-admin");
 // const serviceAccount = require("../serviceAccountKey.json");
 const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
 
+console.log('Firebase env loaded:', !!process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
+
 if (!admin.apps.length) {
   admin.initializeApp({
 
@@ -14,6 +16,8 @@ if (!admin.apps.length) {
 
     
     // }),
+
+    
   });
 }
 
