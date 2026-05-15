@@ -1,9 +1,11 @@
 require("dotenv").config();
 const express    = require("express");
+const http         = require("http");
+const { Server }   = require("socket.io");
 const cors       = require("cors");
 const cookieParser = require("cookie-parser");
 const connectDB  = require("./config/db");
-const { Server }   = require("socket.io");
+
 const initSocket   = require("./socket/chatSocket");
 
 // ── Routes ────────────────────────────────────────────────────────────────────
