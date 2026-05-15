@@ -1,16 +1,16 @@
-const jwt   = require("jsonwebtoken");
+const jwt = require("jsonwebtoken");
 const admin = require("../config/firebaseAdmin");
-const User  = require("../models/User");
+const User = require("../models/User");
 
 // ── Helper: issue JWT ────────────────────────────────────────────────────────
 function issueJWT(user) {
   return jwt.sign(
     {
-      uid:          user.uid,
-      email:        user.email,
-      firstName:    user.firstName,
-      lastName:     user.lastName,
-      role:         user.role,
+      uid: user.uid,
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      role: user.role,
       sellerStatus: user.sellerStatus,
     },
     process.env.JWT_SECRET,
@@ -22,9 +22,9 @@ function issueJWT(user) {
 function setJWTCookie(res, token) {
   res.cookie("auth_token", token, {
     httpOnly: true,
-    secure:   process.env.NODE_ENV === "production",
+    secure: process.env.NODE_ENV === "production",
     sameSite: "strict",
-    maxAge:   7 * 24 * 60 * 60 * 1000, // 7 days
+    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
   });
 }
 
@@ -69,34 +69,34 @@ exports.register = async (req, res) => {
 
     // Build user document
     const userData = {
-      uid:             decoded.uid,
-      email:           email || decoded.email || "",
-      firstName:       firstName || "",
-      lastName:        lastName  || "",
-      phone:           phone     || decoded.phone_number || "",
-      role:            role === "seller" ? "seller" : "user",
-      authProvider:    authProvider || "email",
+      uid: decoded.uid,
+      email: email || decoded.email || "",
+      firstName: firstName || "",
+      lastName: lastName || "",
+      phone: phone || decoded.phone_number || "",
+      role: role === "seller" ? "seller" : "user",
+      authProvider: authProvider || "email",
       isEmailVerified: decoded.email_verified || false,
-      sellerStatus:    role === "seller" ? "pending" : "none",
+      sellerStatus: role === "seller" ? "pending" : "none",
     };
 
     // Add seller profile
     if (role === "seller") {
       userData.sellerProfile = {
-        businessName:     businessName     || "",
-        businessType:     businessType     || "",
+        businessName: businessName || "",
+        businessType: businessType || "",
         businessCategory: businessCategory || "",
-        country:          country          || "",
-        address:          address          || "",
-        website:          website          || "",
-        description:      description      || "",
-        taxId:            taxId            || "",
-        tradeLicense:     tradeLicense     || "",
+        country: country || "",
+        address: address || "",
+        website: website || "",
+        description: description || "",
+        taxId: taxId || "",
+        tradeLicense: tradeLicense || "",
       };
     }
 
     const newUser = await User.create(userData);
-    const token   = issueJWT(newUser);
+    const token = issueJWT(newUser);
     setJWTCookie(res, token);
 
     return res.status(201).json({
@@ -137,15 +137,15 @@ exports.login = async (req, res) => {
     // Auto-create for Google/Phone users who aren't in DB yet
     if (!user) {
       user = await User.create({
-        uid:             decoded.uid,
-        email:           decoded.email || "",
-        firstName:       decoded.name?.split(" ")[0] || "User",
-        lastName:        decoded.name?.split(" ").slice(1).join(" ") || "",
-        role:            "user",
-        authProvider:    decoded.firebase?.sign_in_provider?.includes("google") ? "google" : "phone",
+        uid: decoded.uid,
+        email: decoded.email || null,  // ← null instead of ""
+        firstName: decoded.name?.split(" ")[0] || "User",
+        lastName: decoded.name?.split(" ").slice(1).join(" ") || "",
+        role: "user",
+        authProvider: decoded.firebase?.sign_in_provider?.includes("google") ? "google" : "phone",
         isEmailVerified: decoded.email_verified || false,
-        sellerStatus:    "none",
-        lastLoginAt:     new Date(),
+        sellerStatus: "none",
+        lastLoginAt: new Date(),
       });
     }
 
@@ -218,7 +218,7 @@ exports.getAllUsers = async (req, res) => {
   try {
     const { role, sellerStatus, page = 1, limit = 20 } = req.query;
     const filter = {};
-    if (role)         filter.role = role;
+    if (role) filter.role = role;
     if (sellerStatus) filter.sellerStatus = sellerStatus;
 
     const users = await User.find(filter)
@@ -239,7 +239,7 @@ exports.getAllUsers = async (req, res) => {
 // PUT /auth/seller/:uid/status
 exports.updateSellerStatus = async (req, res) => {
   try {
-    const { uid }    = req.params;
+    const { uid } = req.params;
     const { status, reason } = req.body; // status: "approved" | "rejected"
 
     if (!["approved", "rejected"].includes(status)) {
@@ -247,7 +247,7 @@ exports.updateSellerStatus = async (req, res) => {
     }
 
     const update = {
-      sellerStatus:     status,
+      sellerStatus: status,
       isSellerVerified: status === "approved",
       sellerRejectedReason: status === "rejected" ? (reason || "") : "",
     };
