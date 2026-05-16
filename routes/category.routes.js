@@ -29,7 +29,7 @@ router.get("/landing", getLandingCategories);
 
 // ── Update (admin, super_admin, seller own) ───────────────────────────────
 router.put("/:id",
-  verifyJWT, requireRole("admin", "super_admin", "seller"),
+  // verifyJWT, requireRole("admin", "super_admin", "seller"),
   upload, updateCategory
 );
 
