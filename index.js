@@ -28,7 +28,7 @@ const server = http.createServer(app);
 // ── Socket.IO ──────────────────────────────────────────────────────────────
 const io = new Server(server, {
   cors: {
-    origin:      process.env.CLIENT_URL || "https://falrex.com" || 'https://www.falrex.com',
+    origin: '*',
     credentials: true,
     methods:     ["GET", "POST"],
   },
