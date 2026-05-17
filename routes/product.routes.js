@@ -26,6 +26,7 @@ router.get("/search",               searchProducts);
 router.get("/trending",             getTrendingProducts);
 router.get("/subsubcategory/:subSubcategory", getProductBySubsubcategory);
 
+router.get("/category/:slug", getCategoryBySlug);
 // ── Category routes ───────────────────────────────────────────────────────────
 // Keep only ONE of these — slug-based is preferred
 router.get("/category/:category",   getProductBycategory);   // or getCategoryBySlug
