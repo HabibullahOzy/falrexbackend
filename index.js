@@ -28,7 +28,7 @@ const server = http.createServer(app);
 // ── Socket.IO ──────────────────────────────────────────────────────────────
 const io = new Server(server, {
   cors: {
-    origin: '*',
+    origin:      process.env.CLIENT_URL || "https://falrex.com" || 'https://www.falrex.com',
     credentials: true,
     methods:     ["GET", "POST"],
   },
@@ -50,7 +50,7 @@ app.use((req, res, next) => {
 
 // ── Middleware ──────────────────────────────────────────────────
 app.use(cors({
-  origin: "http://localhost:3000", // Your Next.js URL
+  origin: '*', // Your Next.js URL
   credentials: true, 
   methods: ["GET", "POST", "PUT", "DELETE"],
 }));
