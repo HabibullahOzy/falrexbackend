@@ -41,19 +41,26 @@ initSocket(io);
 
 
 // Fix COOP for Google OAuth popup
-// app.use((req, res, next) => {
-//   res.setHeader('Cross-Origin-Opener-Policy', 'same-origin-allow-popups');
-//   res.setHeader('Cross-Origin-Embedder-Policy', 'unsafe-none');
-//   next();
-// });
+app.use((req, res, next) => {
+  res.setHeader('Cross-Origin-Opener-Policy', 'same-origin-allow-popups');
+  res.setHeader('Cross-Origin-Embedder-Policy', 'unsafe-none');
+  next();
+});
 
 
 // ── Middleware ──────────────────────────────────────────────────
+// app.use(cors({
+//   origin: '*', // Your Next.js URL
+//   credentials: true, 
+//   methods: ["GET", "POST", "PUT", "DELETE"],
+// }));
 app.use(cors({
-  origin: '*', // Your Next.js URL
-  credentials: true, 
-  methods: ["GET", "POST", "PUT", "DELETE"],
+  origin: function(origin, callback) {
+    callback(null, true); // allow all origins
+  },
+  credentials: true  // now works because origin is not '*'
 }));
+
 
 // Add these lines right after app.use(cors(...))
 app.use(express.json({ limit: "50mb" }));
