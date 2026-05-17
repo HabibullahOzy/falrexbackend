@@ -493,6 +493,89 @@ exports.getProductsByFilter = async (req, res) => {
     console.error("getProductsByFilter error:", err);
     return res.status(500).json({ success: false, message: err.message });
   }
+
+
+
+
+  // ── SEARCH PRODUCTS ────────────────────────────────────────────────────────
+// GET /product/search?q=keyword&limit=8
+exports.searchProducts = async (req, res) => {
+  try {
+    const { q = "", limit = 8, category, subcategory } = req.query;
+
+    if (!q.trim()) {
+      return res.json({ success: true, data: [], total: 0 });
+    }
+
+    const filter = {
+      $or: [
+        { nameEng:        { $regex: new RegExp(q, "i") } },
+        { brand:          { $regex: new RegExp(q, "i") } },
+        { sku:            { $regex: new RegExp(q, "i") } },
+        { modelNumber:    { $regex: new RegExp(q, "i") } },
+        { category:       { $regex: new RegExp(q, "i") } },
+        { subcategory:    { $regex: new RegExp(q, "i") } },
+        { supplierName:   { $regex: new RegExp(q, "i") } },
+        { tags:           { $in: [new RegExp(q, "i")] } },
+        { shortDescription: { $regex: new RegExp(q, "i") } },
+      ],
+    };
+
+    if (category)    filter.category    = { $regex: new RegExp(`^${category}$`, "i") };
+    if (subcategory) filter.subcategory = { $regex: new RegExp(`^${subcategory}$`, "i") };
+
+    const products = await Product.find(filter)
+      .limit(Number(limit))
+      .select(
+        "nameEng brand sku slug category subcategory subSubcategory " +
+        "price currency discount images avgRating totalReviews " +
+        "supplierName stock moq"
+      )
+      .sort({ avgRating: -1, createdAt: -1 });
+
+    const total = await Product.countDocuments(filter);
+
+    // Search suggestions — unique categories + brands that match
+    const categories = await Product.distinct("category", {
+      category: { $regex: new RegExp(q, "i") },
+    });
+    const brands = await Product.distinct("brand", {
+      brand: { $regex: new RegExp(q, "i") },
+    });
+
+    return res.json({
+      success: true,
+      total,
+      data:        products,
+      suggestions: {
+        categories: categories.slice(0, 4),
+        brands:     brands.slice(0, 4),
+      },
+    });
+  } catch (err) {
+    console.error("searchProducts error:", err);
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// ── GET TRENDING / POPULAR (for empty search state) ───────────────────────
+// GET /product/trending?limit=6
+exports.getTrendingProducts = async (req, res) => {
+  try {
+    const { limit = 6 } = req.query;
+    const products = await Product.find({ stock: { $gt: 0 } })
+      .sort({ totalReviews: -1, avgRating: -1 })
+      .limit(Number(limit))
+      .select(
+        "nameEng brand category images price currency discount " +
+        "avgRating totalReviews sku slug"
+      );
+
+    return res.json({ success: true, data: products });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
 };
 
 

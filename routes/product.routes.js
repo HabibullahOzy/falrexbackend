@@ -13,7 +13,8 @@ const {
   getProductsByFilter,
   getCategoryBySlug,
   deleteProductImage,
-  deleteProductVideo
+  deleteProductVideo,
+  searchProducts, getTrendingProducts,
 } = require("../controllers/product.controller");
 
 // CRUD
@@ -58,5 +59,11 @@ router.get("/:name", async (req, res) => {
     res.status(500).json({ success: false, message: err.message });
   }
 });
+
+
+
+// Add BEFORE /:id
+router.get("/search",   searchProducts);
+router.get("/trending", getTrendingProducts);
 
 module.exports = router;
