@@ -6,7 +6,7 @@ const {
   markAsRead, deleteMessage, getUnreadCount,
 } = require("../controllers/chat.controller");
 
-router.use(verifyJWT); // all chat routes require auth
+// router.use(verifyJWT); // all chat routes require auth
 
 router.get( "/conversations",           getConversations);
 router.post("/room",                    getOrCreateRoom);
