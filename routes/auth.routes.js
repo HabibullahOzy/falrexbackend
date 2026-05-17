@@ -10,7 +10,7 @@ router.post("/logout",   controller.logout);
 router.post("/refresh",  controller.refreshToken);
 
 // ── Protected routes (needs JWT) ──────────────────────────────────────────────
-router.get("/me", verifyJWT, controller.getMe);
+router.get("/me",  controller.getMe);
 
 // ── Admin routes ──────────────────────────────────────────────────────────────
 router.get("/users",
