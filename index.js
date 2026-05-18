@@ -158,7 +158,7 @@ app.use((req, res, next) => {
 
 // ── Core middleware ─────────────────────────────────────────────────────────
 app.use(cors(corsOptions));
-app.options("/(.*)", cors(corsOptions));   // handle pre-flight for all routes
+app.options("{*path}", cors(corsOptions));  // handle pre-flight for all routes
 
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
