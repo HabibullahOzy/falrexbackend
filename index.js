@@ -43,11 +43,7 @@ app.use((req, res, next) => {
 
 // ── Allowed origins ────────────────────────────────────────────────────────
 const ALLOWED_ORIGINS = [
-  "http://localhost:3000",
-  "https://falrex.vercel.app",
-  "falrex.com",
-  "https://www.falrex.com",
-  process.env.CLIENT_URL,
+  '*'
 ].filter(Boolean);
 
 const corsOptions = {
