@@ -44,9 +44,9 @@ app.use((req, res, next) => {
 // ── Allowed origins ────────────────────────────────────────────────────────
 const ALLOWED_ORIGINS = [
   "http://localhost:3000",
-  "http://localhost:3001",
-  "https://falrex.vercel.app",        // your production frontend
-  "https://www.falrex.com",           // custom domain if any
+  "https://falrex.vercel.app",
+  "falrex.com",
+  "https://www.falrex.com",
   process.env.CLIENT_URL,
 ].filter(Boolean);
 
