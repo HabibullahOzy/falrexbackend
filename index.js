@@ -25,6 +25,20 @@ connectDB();
 const app = express();
 const server = http.createServer(app);
 
+// ── Socket.IO ──────────────────────────────────────────────────────────────
+const io = new Server(server, {
+  cors: {
+    origin:      process.env.CLIENT_URL || "https://falrex.com" || 'https://www.falrex.com',
+    credentials: true,
+    methods:     ["GET", "POST"],
+  },
+  pingTimeout:  60000,
+  pingInterval: 25000,
+});
+
+initSocket(io);
+
+
 
 // Fix COOP for Google OAuth popup
 app.use((req, res, next) => {
@@ -35,40 +49,11 @@ app.use((req, res, next) => {
 
 
 // ── Middleware ──────────────────────────────────────────────────
-// app.use(cors({
-//   origin: '*', // Your Next.js URL
-//   credentials: true, 
-//   methods: ["GET", "POST", "PUT", "DELETE"],
-// }));
-
-// ── Allowed origins ────────────────────────────────────────────────────────
-const ALLOWED_ORIGINS = [
-  '*'
-].filter(Boolean);
-
-const corsOptions = {
-  origin: (origin, callback) => {
-    // Allow requests with no origin (mobile apps, curl, Postman)
-    if (!origin) return callback(null, true);
-
-    if (ALLOWED_ORIGINS.includes(origin)) {
-      return callback(null, true);
-    }
-
-    console.warn(`CORS blocked: ${origin}`);
-    return callback(new Error(`CORS: origin ${origin} not allowed`));
-  },
-  credentials:         true,   // ← MUST be true for cookies
-  methods:             ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-  allowedHeaders:      ["Content-Type", "Authorization", "x-session-id", "x-requested-with"],
-  exposedHeaders:      ["Set-Cookie"],
-  optionsSuccessStatus:200,    // some legacy browsers choke on 204
-};
-
-// ── Apply CORS before everything else ─────────────────────────────────────
-app.use(cors(corsOptions));
-app.options("*", cors(corsOptions)); // handle preflight for all routes
-
+app.use(cors({
+  origin: '*', // Your Next.js URL
+  credentials: true, 
+  methods: ["GET", "POST", "PUT", "DELETE"],
+}));
 
 // Add these lines right after app.use(cors(...))
 app.use(express.json({ limit: "50mb" }));
@@ -76,21 +61,6 @@ app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 app.use(cookieParser());   // parse auth_token cookie
 // app.use(express.json());
 // app.use(express.urlencoded({ extended: true }));
-
-
-// ── Socket.IO ──────────────────────────────────────────────────────────────
-const io = new Server(server, {
-  cors: {
-    origin:      ALLOWED_ORIGINS,
-    credentials: true,
-    methods:     ["GET", "POST"],
-  },
-  pingTimeout:  60000,
-  pingInterval: 25000,
-});
-
-initSocket(io);
-
 
 // ──API Routes ──────────────────────────────────────────────────────
 app.use("/product", productRoutes);
