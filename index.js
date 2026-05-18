@@ -118,6 +118,8 @@ const ALLOWED_ORIGINS = [
   "http://localhost:3000",
   "http://localhost:3001",
   "https://falrex.com",
+  "falrex.com",
+  "https://falrexbackend-production.up.railway.app",
   "https://www.falrex.com",
   // add staging / preview URLs here
 ];
