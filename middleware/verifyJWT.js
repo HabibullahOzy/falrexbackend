@@ -2,10 +2,11 @@ const jwt = require("jsonwebtoken");
 
 const verifyJWT = (req, res, next) => {
   try {
-    // Check cookie first, then Authorization header
+    // 1. Cookie (same-origin / production)
+    // 2. Authorization: Bearer <token> (cross-origin dev fallback)
     const token =
       req.cookies?.auth_token ||
-      req.headers.authorization?.split("Bearer ")[1];
+      req.headers.authorization?.replace(/^Bearer\s+/i, "");
 
     if (!token) {
       return res.status(401).json({ success: false, message: "Not authenticated" });
@@ -19,7 +20,7 @@ const verifyJWT = (req, res, next) => {
   }
 };
 
-// Role guard middleware
+// Role guard — call after verifyJWT
 const requireRole = (...roles) => (req, res, next) => {
   if (!req.user) {
     return res.status(401).json({ success: false, message: "Not authenticated" });
