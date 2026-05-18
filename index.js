@@ -118,8 +118,6 @@ const ALLOWED_ORIGINS = [
   "http://localhost:3000",
   "http://localhost:3001",
   "https://falrex.com",
-  "falrex.com",
-  "https://falrexbackend-production.up.railway.app",
   "https://www.falrex.com",
   // add staging / preview URLs here
 ];
@@ -160,7 +158,7 @@ app.use((req, res, next) => {
 
 // ── Core middleware ─────────────────────────────────────────────────────────
 app.use(cors(corsOptions));
-app.options("*", cors(corsOptions));   // handle pre-flight for all routes
+app.options("/(.*)", cors(corsOptions));   // handle pre-flight for all routes
 
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
