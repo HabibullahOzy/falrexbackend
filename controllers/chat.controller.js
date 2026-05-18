@@ -1,8 +1,12 @@
 const Message      = require("../models/Message");
 const Conversation = require("../models/Conversation");
+const User         = require("../models/User");
 
-// ── GET conversations for a user ──────────────────────────────────────────
-// GET /chat/conversations
+function getRoomId(uid1, uid2) {
+  return [uid1, uid2].sort().join("_");
+}
+
+// ── GET /chat/conversations ────────────────────────────────────────────────
 exports.getConversations = async (req, res) => {
   try {
     const uid = req.user.uid;
@@ -10,7 +14,7 @@ exports.getConversations = async (req, res) => {
     const conversations = await Conversation.find({
       "participants.uid": uid,
       isActive: true,
-    }).sort({ "lastMessage.createdAt": -1 });
+    }).sort({ updatedAt: -1 });
 
     return res.json({ success: true, data: conversations });
   } catch (err) {
@@ -18,30 +22,36 @@ exports.getConversations = async (req, res) => {
   }
 };
 
-// ── GET messages in a room ────────────────────────────────────────────────
-// GET /chat/messages/:roomId
+// ── GET /chat/messages/:roomId ─────────────────────────────────────────────
 exports.getMessages = async (req, res) => {
   try {
-    const { roomId }    = req.params;
-    const { page = 1, limit = 50 } = req.query;
+    const { roomId }             = req.params;
+    const { page = 1, limit = 30 } = req.query;
+    const uid                    = req.user.uid;
+
+    // Verify user is participant
+    const conv = await Conversation.findOne({ roomId });
+    if (conv && !conv.participants.some((p) => p.uid === uid)) {
+      return res.status(403).json({ success: false, message: "Not authorized" });
+    }
+
+    const total = await Message.countDocuments({ roomId, isDeleted: false });
 
     const messages = await Message.find({ roomId, isDeleted: false })
       .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
       .limit(Number(limit));
 
-    const total = await Message.countDocuments({ roomId, isDeleted: false });
-
     // Mark as read
     await Message.updateMany(
-      { roomId, receiverId: req.user.uid, isRead: false },
+      { roomId, receiverId: uid, isRead: false },
       { isRead: true, readAt: new Date() }
     );
 
-    // Reset unread count for this user
+    // Reset unread
     await Conversation.findOneAndUpdate(
       { roomId },
-      { $set: { [`unreadCount.${req.user.uid}`]: 0 } }
+      { $set: { [`unreadCount.${uid}`]: 0 } }
     );
 
     return res.json({
@@ -49,42 +59,78 @@ exports.getMessages = async (req, res) => {
       data:    messages.reverse(), // oldest first
       total,
       pages:   Math.ceil(total / limit),
+      page:    Number(page),
     });
   } catch (err) {
     return res.status(500).json({ success: false, message: err.message });
   }
 };
 
-// ── GET or create room ID between two users ───────────────────────────────
-// POST /chat/room
+// ── POST /chat/room — get or create ───────────────────────────────────────
 exports.getOrCreateRoom = async (req, res) => {
   try {
-    const { targetUid, targetName, targetRole, targetAvatar } = req.body;
+    const { targetUid, targetName, targetRole, targetAvatar, targetEmail } =
+      req.body;
     const me = req.user;
 
-    const roomId = [me.uid, targetUid].sort().join("_");
+    if (!targetUid) {
+      return res.status(400).json({ success: false, message: "targetUid required" });
+    }
+    if (targetUid === me.uid) {
+      return res.status(400).json({ success: false, message: "Cannot chat with yourself" });
+    }
 
-    let conversation = await Conversation.findOne({ roomId });
+    const roomId = getRoomId(me.uid, targetUid);
 
-    if (!conversation) {
-      conversation = await Conversation.create({
+    // Fetch target user info from DB if not provided
+    let targetInfo = {
+      uid:    targetUid,
+      name:   targetName  || "User",
+      role:   targetRole  || "user",
+      avatar: targetAvatar|| "",
+      email:  targetEmail || "",
+    };
+
+    if (!targetName) {
+      const targetUser = await User.findOne({ uid: targetUid }).select(
+        "firstName lastName role avatar email"
+      );
+      if (targetUser) {
+        targetInfo = {
+          uid:    targetUid,
+          name:   `${targetUser.firstName} ${targetUser.lastName || ""}`.trim(),
+          role:   targetUser.role,
+          avatar: targetUser.avatar || "",
+          email:  targetUser.email  || "",
+        };
+      }
+    }
+
+    let conv = await Conversation.findOne({ roomId });
+    if (!conv) {
+      conv = await Conversation.create({
         roomId,
         participants: [
-          { uid: me.uid,       name: `${me.firstName} ${me.lastName || ""}`.trim(), role: me.role,   avatar: "" },
-          { uid: targetUid,   name: targetName,  role: targetRole || "user", avatar: targetAvatar || "" },
+          {
+            uid:    me.uid,
+            name:   `${me.firstName} ${me.lastName || ""}`.trim() || me.email,
+            role:   me.role,
+            avatar: me.avatar || "",
+            email:  me.email  || "",
+          },
+          targetInfo,
         ],
         unreadCount: { [me.uid]: 0, [targetUid]: 0 },
       });
     }
 
-    return res.json({ success: true, data: { roomId, conversation } });
+    return res.json({ success: true, data: { roomId, conversation: conv } });
   } catch (err) {
     return res.status(500).json({ success: false, message: err.message });
   }
 };
 
-// ── Mark all messages in a room as read ───────────────────────────────────
-// PUT /chat/messages/:roomId/read
+// ── PUT /chat/messages/:roomId/read ───────────────────────────────────────
 exports.markAsRead = async (req, res) => {
   try {
     const { roomId } = req.params;
@@ -106,19 +152,19 @@ exports.markAsRead = async (req, res) => {
   }
 };
 
-// ── Delete a message ──────────────────────────────────────────────────────
-// DELETE /chat/messages/:messageId
+// ── DELETE /chat/messages/:messageId ─────────────────────────────────────
 exports.deleteMessage = async (req, res) => {
   try {
     const msg = await Message.findById(req.params.messageId);
-    if (!msg) return res.status(404).json({ success: false, message: "Not found" });
+    if (!msg)
+      return res.status(404).json({ success: false, message: "Not found" });
 
     if (msg.senderId !== req.user.uid) {
       return res.status(403).json({ success: false, message: "Not authorized" });
     }
 
     msg.isDeleted = true;
-    msg.content   = "This message was deleted";
+    msg.content   = "This message was deleted.";
     await msg.save();
 
     return res.json({ success: true, data: msg });
@@ -127,17 +173,80 @@ exports.deleteMessage = async (req, res) => {
   }
 };
 
-// ── Get unread count ──────────────────────────────────────────────────────
-// GET /chat/unread
+// ── GET /chat/unread ──────────────────────────────────────────────────────
 exports.getUnreadCount = async (req, res) => {
   try {
-    const uid   = req.user.uid;
     const count = await Message.countDocuments({
-      receiverId: uid,
+      receiverId: req.user.uid,
       isRead:     false,
       isDeleted:  false,
     });
     return res.json({ success: true, count });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// ── GET /chat/users — list users to start new chat ────────────────────────
+exports.getChatUsers = async (req, res) => {
+  try {
+    const { search = "" } = req.query;
+    const uid             = req.user.uid;
+
+    const filter = {
+      uid:      { $ne: uid },
+      isActive: true,
+      ...(search && {
+        $or: [
+          { firstName: { $regex: search, $options: "i" } },
+          { lastName:  { $regex: search, $options: "i" } },
+          { email:     { $regex: search, $options: "i" } },
+        ],
+      }),
+    };
+
+    const users = await User.find(filter)
+      .select("uid firstName lastName email role avatar sellerStatus")
+      .limit(20);
+
+    const mapped = users.map((u) => ({
+      uid:    u.uid,
+      name:   `${u.firstName} ${u.lastName || ""}`.trim(),
+      email:  u.email,
+      role:   u.role,
+      avatar: u.avatar || "",
+    }));
+
+    return res.json({ success: true, data: mapped });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// ── PUT /chat/react/:messageId — add/remove emoji reaction ───────────────
+exports.reactToMessage = async (req, res) => {
+  try {
+    const { emoji } = req.body;
+    const uid       = req.user.uid;
+
+    const msg = await Message.findById(req.params.messageId);
+    if (!msg) return res.status(404).json({ success: false, message: "Not found" });
+
+    const existing = msg.reactions.findIndex((r) => r.uid === uid);
+    if (existing !== -1) {
+      if (msg.reactions[existing].emoji === emoji) {
+        // Remove if same emoji
+        msg.reactions.splice(existing, 1);
+      } else {
+        // Change emoji
+        msg.reactions[existing].emoji = emoji;
+      }
+    } else {
+      msg.reactions.push({ uid, emoji });
+    }
+
+    await msg.save();
+    return res.json({ success: true, data: msg });
   } catch (err) {
     return res.status(500).json({ success: false, message: err.message });
   }
