@@ -229,16 +229,28 @@ const ALLOWED_ORIGINS = [
   "https://www.falrex.com",
 ];
 
+// const corsOptions = {
+//   origin(origin, cb) {
+//     // Allow server-to-server (no origin header) and known origins
+//     if (!origin || ALLOWED_ORIGINS.includes(origin)) return cb(null, true);
+//     cb(new Error(`CORS: origin '${origin}' not allowed`));
+//   },
+//   credentials:    true,
+//   methods:        ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+//   allowedHeaders: ["Content-Type", "Authorization"],
+// };
+
+
 const corsOptions = {
   origin(origin, cb) {
-    // Allow server-to-server (no origin header) and known origins
     if (!origin || ALLOWED_ORIGINS.includes(origin)) return cb(null, true);
     cb(new Error(`CORS: origin '${origin}' not allowed`));
   },
   credentials:    true,
   methods:        ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"],
+  allowedHeaders: ["Content-Type", "Authorization", "x-session-id"],
 };
+
 
 // ── Socket.IO ─────────────────────────────────────────────────────────────────
 const io = new Server(server, {
