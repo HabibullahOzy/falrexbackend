@@ -281,15 +281,19 @@ app.use((req, res, next) => {
 
 // ── CORS + pre-flight ─────────────────────────────────────────────────────────
 app.use(cors(corsOptions));
+// for load faster
+const compression = require("compression");
+app.use(compression()); 
+// for load faster
 app.options("{*path}", cors(corsOptions));
 
 // ── Core middleware ───────────────────────────────────────────────────────────
-app.use(express.json({ limit: "50mb" }));
-app.use(express.urlencoded({ extended: true, limit: "50mb" }));
+app.use(express.json({ limit: "1mb" }));
+app.use(express.urlencoded({ extended: true, limit: "1mb" }));
 app.use(cookieParser());
 
 // ── Routes ────────────────────────────────────────────────────────────────────
-app.use("/product",  productRoutes);
+app.use("/product",express.json({ limit: "15mb" }),  productRoutes);
 app.use("/auth",     authRoutes);
 app.use("/category", categoryRoutes);
 app.use("/users",    userRoutes);
