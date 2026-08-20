@@ -13,7 +13,14 @@ const connectDB = async () => {
       dns.setServers(["8.8.8.8", "1.1.1.1"]);
     }
 
-    await mongoose.connect(mongoUri);
+    await mongoose.connect(mongoUri, 
+      // for faast load
+      {
+  maxPoolSize: 10,        // reuse connections instead of opening new ones
+  serverSelectionTimeoutMS: 5000,
+}
+// for faast load
+);
 
     console.log("MongoDB Connected");
   } catch (err) {
