@@ -284,6 +284,7 @@ app.use(cors(corsOptions));
 // for load faster
 const compression = require("compression");
 app.use(compression()); 
+res.set("Cache-Control", "public, max-age=60");
 // for load faster
 app.options("{*path}", cors(corsOptions));
 
@@ -301,6 +302,7 @@ app.use("/cart",     cartRoutes);
 app.use("/orders",   orderRoutes);
 app.use("/reviews",  reviewRoutes);
 app.use("/chat",     chatRoutes);
+
 
 app.get("/", (req, res) => res.send("🟢 Server running"));
 
